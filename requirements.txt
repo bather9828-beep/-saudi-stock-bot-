@@ -1,5 +1,5 @@
 yfinance
+requests
 pandas
 numpy
-requests
 pytz
