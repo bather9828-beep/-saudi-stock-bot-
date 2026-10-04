@@ -1,45 +1,43 @@
-name: Saudi Stock Market Scanner
+name: Saudi Stock Bot
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch:
+    # يعمل كل 5 دقائق من 7 صباحاً إلى 12 ظهراً بتوقيت UTC 
+    # (وهو ما يعادل بالضبط 10 صباحاً إلى 3 عصراً بتوقيت السعودية)
+    # أيام العمل: الأحد (0)، والاثنين إلى الخميس (2, 3, 4, 5, 6)
+    - cron: '*/5 7-12 * * 0,2-6'
+  workflow_dispatch: # يسمح لك بتشغيل البوت يدوياً في أي وقت
 
 permissions:
   contents: write
 
 jobs:
-  scan-market:
+  scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
+        
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
+      
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run Stock Bot
+        run: pip install yfinance requests pandas numpy pytz
+      
+      - name: Run Bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python bot.py
-
+      
       - name: Save data
         run: |
           git config --global user.name "bot"
-          git config --global user.email "bot@github.com"
+          git config --global user.email "bot@bot.com"
           git add -A
-          git commit -m "save" || true
+          git commit -m "save data" || true
           git push || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
