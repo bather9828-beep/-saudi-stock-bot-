@@ -34,6 +34,12 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python bot.py
 
-      - name: Save all data files
+      - name: Save data
         run: |
-          git config --global use
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
+          git add -A
+          git commit -m "save" || true
+          git push || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
