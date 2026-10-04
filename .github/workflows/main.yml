@@ -2,9 +2,8 @@ name: Saudi Stock Market Scanner
 
 on:
   schedule:
-    # يعمل كل 5 دقائق من الأحد للخميس (توقيت السوق السعودي: 7am - 12pm UTC = 10am - 3pm السعودية)
     - cron: '*/5 7-12 * * 0,2-6'
-  workflow_dispatch: # يسمح لك بتشغيل البوت يدوياً في أي وقت
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -37,9 +36,4 @@ jobs:
 
       - name: Save all data files
         run: |
-          git config --global user.name 'GitHub Actions Bot'
-          git config --global user.email 'bot@github.com'
-          git add -A
-          git diff --staged --quiet || (git commit -m " Save bot data [skip ci]" && git pull --rebase && git push)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git config --global use
