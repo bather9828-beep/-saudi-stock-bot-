@@ -54,12 +54,22 @@ def get_bot_id():
     except: pass
     return None
 
-def get_last_processed_id():
-    data = load_json(PROCESSED_FILE, {'last_id': 0})
-    return data.get('last_id', 0)
+# ✅ الحل: حفظ قائمة كاملة من الرسائل المعالجة
+def get_processed_ids():
+    data = load_json(PROCESSED_FILE, {'processed': [], 'date': ''})
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    if data.get('date') != today:
+        data = {'processed': [], 'date': today}
+        save_json(PROCESSED_FILE, data)
+    return data.get('processed', [])
 
-def save_last_processed_id(update_id):
-    save_json(PROCESSED_FILE, {'last_id': update_id})
+def add_processed_id(update_id):
+    data = load_json(PROCESSED_FILE, {'processed': [], 'date': ''})
+    if update_id not in data['processed']:
+        data['processed'].append(update_id)
+        if len(data['processed']) > 1000:
+            data['processed'] = data['processed'][-500:]
+        save_json(PROCESSED_FILE, data)
 
 def analyze_stock(symbol):
     try:
@@ -76,14 +86,15 @@ def handle_commands():
     bot_id = get_bot_id()
     print(f"🤖 Bot ID: {bot_id}")
     
-    last_id = get_last_processed_id()
-    print(f"📋 آخر ID: {last_id}")
+    # ✅ قراءة كل الرسائل (offset=0)
+    processed_ids = get_processed_ids()
+    print(f"📋 عدد الرسائل المعالجة: {len(processed_ids)}")
     
     url_base = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
     
     try:
-        # قراءة آخر رسالة فقط
-        url = f"{url_base}/getUpdates?offset={last_id + 1}&limit=1&timeout=5"
+        # قراءة آخر 100 رسالة
+        url = f"{url_base}/getUpdates?offset=0&limit=100&timeout=5"
         print(f"📡 الاتصال...")
         response = requests.get(url, timeout=10).json()
         
@@ -95,57 +106,70 @@ def handle_commands():
         print(f"📨 عدد التحديثات: {len(updates)}")
         
         if not updates:
-            print("📭 لا رسائل جديدة")
+            print("📭 لا رسائل")
             return
         
-        update = updates[0]
-        update_id = update['update_id']
-        message = update.get('message', {})
+        settings = get_settings()
+        processed = 0
+        skipped = 0
         
-        if not message:
-            save_last_processed_id(update_id)
-            return
-        
-        # تجاهل رسائل البوت نفسه
-        sender = message.get('from', {})
-        if sender.get('is_bot', False) or (bot_id and sender.get('id') == bot_id):
-            print(f"🤖 تخطي رسالة من البوت")
-            save_last_processed_id(update_id)
-            return
-        
-        text = message.get('text', '').strip()
-        chat_id = str(message.get('chat', {}).get('id', ''))
-        
-        print(f"💬 رسالة: {text[:50]}")
-        
-        if chat_id != CHAT_ID:
-            print(f"⚠️ Chat ID غير مطابق")
-            save_last_processed_id(update_id)
-            return
-        
-        # الرد على الرسالة
-        if text == '/help':
-            send_telegram("🤖 <b>أوامر البوت:</b>\n/help - الأوامر\n/stock 2222 - تحليل سهم\n/settings - الإعدادات")
-        elif text.startswith('/stock '):
-            sym = text.split()[1].upper()
-            if not sym.endswith('.SR'): sym = sym + '.SR'
-            result = analyze_stock(sym)
-            if result:
-                name = STOCK_NAMES.get(result['symbol'], result['symbol'])
-                send_telegram(f"📊 <b>{name} ({result['symbol'].replace('.SR', '')}):</b>\n💰 {result['price']} ر.س\n📈 {result['change']:+.2f}%")
+        for update in updates:
+            update_id = update['update_id']
+            
+            # تخطي الرسائل المعالجة مسبقاً
+            if update_id in processed_ids:
+                continue
+            
+            message = update.get('message', {})
+            if not message:
+                add_processed_id(update_id)
+                continue
+            
+            # تجاهل رسائل البوت نفسه
+            sender = message.get('from', {})
+            if sender.get('is_bot', False) or (bot_id and sender.get('id') == bot_id):
+                print(f"🤖 تخطي رسالة من البوت")
+                add_processed_id(update_id)
+                skipped += 1
+                continue
+            
+            text = message.get('text', '').strip()
+            chat_id = str(message.get('chat', {}).get('id', ''))
+            
+            print(f"💬 رسالة: {text[:50]}")
+            
+            if chat_id != CHAT_ID:
+                print(f"⚠️ Chat ID غير مطابق")
+                add_processed_id(update_id)
+                skipped += 1
+                continue
+            
+            # الرد على الرسالة
+            if text == '/help':
+                send_telegram(" <b>أوامر البوت:</b>\n/help - الأوامر\n/stock 2222 - تحليل سهم\n/settings - الإعدادات")
+            elif text.startswith('/stock '):
+                sym = text.split()[1].upper()
+                if not sym.endswith('.SR'): sym = sym + '.SR'
+                result = analyze_stock(sym)
+                if result:
+                    name = STOCK_NAMES.get(result['symbol'], result['symbol'])
+                    send_telegram(f"📊 <b>{name} ({result['symbol'].replace('.SR', '')}):</b>\n💰 {result['price']} ر.س\n {result['change']:+.2f}%")
+                else:
+                    send_telegram(f"❌ لا بيانات لـ {sym}")
+            elif text == '/settings':
+                settings = get_settings()
+                send_telegram(f"⚙️ <b>الإعدادات:</b>\n💰 الميزانية: {settings['capital']} ر.س\n⚠️ المخاطرة: {settings['risk_percent']}%\n🧠 RSI: {settings['rsi_threshold']}")
             else:
-                send_telegram(f"❌ لا بيانات لـ {sym}")
-        elif text == '/settings':
-            settings = get_settings()
-            send_telegram(f"⚙️ <b>الإعدادات:</b>\n💰 الميزانية: {settings['capital']} ر.س\n⚠️ المخاطرة: {settings['risk_percent']}%\n🧠 RSI: {settings['rsi_threshold']}")
-        else:
-            send_telegram(f"🤔 لم أفهم. جرب: /help")
+                send_telegram(f"🤔 لم أفهم. جرب: /help")
+            
+            add_processed_id(update_id)
+            processed += 1
+            print(f"✅ تمت المعالجة: {update_id}")
         
-        save_last_processed_id(update_id)
-        print(f"✅ تمت المعالجة: {update_id}")
+        print(f"✅ تمت معالجة {processed}، تخطي {skipped}")
         
     except Exception as e:
-        print(f"❌ خطأ: {e}")
+        print(f" خطأ: {e}")
 
 def run_scan():
     print("🎯 بدء الفحص...")
@@ -153,7 +177,7 @@ def run_scan():
     
     msg = f"📊 <b>فحص السوق السعودي 🇦</b>\n"
     msg += f"📅 {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}\n"
-    msg += f"💰 الميزانية: {settings['capital']} ر.س\n\n"
+    msg += f" الميزانية: {settings['capital']} ر.س\n\n"
     
     results = []
     for sym in DEFAULT_STOCKS:
