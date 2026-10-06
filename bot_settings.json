@@ -1,11 +1,11 @@
 {
   "capital": 50000,
   "risk_percent": 2.0,
-  "rsi_threshold": 32,
-  "accuracy_score": 0.2,
-  "total_predictions": 260,
-  "correct_predictions": 53,
-  "last_adjustment": "2026-10-04",
+  "rsi_threshold": 29,
+  "accuracy_score": 0.27,
+  "total_predictions": 350,
+  "correct_predictions": 96,
+  "last_adjustment": "2026-10-05",
   "last_fast_learning": "2026-10-06T09:24:06.486732+00:00",
   "mistake_patterns": {
     "high_rsi": 2,
