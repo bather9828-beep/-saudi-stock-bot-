@@ -2,15 +2,15 @@
   "capital": 50000,
   "risk_percent": 2.0,
   "rsi_threshold": 25,
-  "accuracy_score": 0.42,
-  "total_predictions": 6620,
-  "correct_predictions": 2753,
+  "accuracy_score": 0.41,
+  "total_predictions": 6660,
+  "correct_predictions": 2763,
   "last_adjustment": "2026-10-21",
-  "last_fast_learning": "2026-10-25T08:38:39.549603+00:00",
+  "last_fast_learning": "2026-10-25T09:44:58.644208+00:00",
   "mistake_patterns": {
     "high_rsi": 141,
-    "low_volume": 554,
-    "weak_trend": 415,
-    "wrong_macd": 499
+    "low_volume": 580,
+    "weak_trend": 441,
+    "wrong_macd": 525
   }
 }
